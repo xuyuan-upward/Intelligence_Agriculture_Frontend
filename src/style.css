@@ -1,0 +1,112 @@
+:root {
+  /* Agri Nature Theme Palette */
+  --agri-bg-color: #f0f9f4; /* Light Green Tint Background */
+  --app-bg-image: url('@/assets/backgroud.png');
+  --agri-card-bg: #ffffff;
+  --agri-card-border: #dcdfe6;
+  --agri-primary-color: #42b983; /* Vue Green */
+  --agri-secondary-color: #34495e; /* Dark Slate */
+  --agri-text-primary: #2c3e50;
+  --agri-text-secondary: #606266;
+  --agri-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  
+  /* Element Plus Overrides */
+  --el-color-primary: var(--agri-primary-color);
+  --el-bg-color: var(--agri-bg-color);
+  --el-text-color-primary: var(--agri-text-primary);
+  --el-text-color-regular: var(--agri-text-secondary);
+  --el-border-color-light: var(--agri-card-border);
+  --el-fill-color-blank: #ffffff;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--agri-bg-color);
+  color: var(--agri-text-primary);
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Nature Card Style */
+.tech-card {
+  background: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--agri-shadow) !important;
+  color: var(--agri-text-primary) !important;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.tech-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(66, 185, 131, 0.15) !important;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Element Plus Light Mode Fixes */
+.el-card {
+  background-color: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(10px);
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  color: var(--agri-text-primary);
+}
+
+.el-card__header {
+  background-color: rgba(255, 255, 255, 0.22) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 15px 20px;
+  font-weight: bold;
+  color: var(--agri-secondary-color);
+}
+
+.el-table {
+  background-color: transparent !important;
+  color: var(--agri-text-primary);
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: transparent;
+  --el-table-row-hover-bg-color: rgba(255, 255, 255, 0.25);
+  --el-table-border-color: rgba(0, 0, 0, 0.06);
+}
+
+.el-table th, .el-table tr, .el-table td {
+  background-color: rgba(255, 255, 255, 0.18) !important;
+  border-bottom-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+.el-dialog {
+  background: #ffffff !important;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.el-dialog__title {
+  color: var(--agri-text-primary) !important;
+  font-weight: 600;
+}
