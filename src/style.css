@@ -29,6 +29,7 @@ body {
   background-color: var(--agri-bg-color);
   color: var(--agri-text-primary);
   min-height: 100vh;
+  background-image: url('@/assets/backgroud.png');
 }
 
 * {

@@ -1,8 +1,8 @@
 <template>
   <div class="dashboard-container">
-    <!-- Top Row: Real-time Monitoring & Alarms -->
+    <!-- 顶部行: 实时监控与告警 -->
     <el-row :gutter="20">
-      <!-- Left Column: Real-time Environmental Monitoring -->
+      <!-- 左侧列: 实时环境监测数据 -->
       <el-col :span="16">
         <el-card class="section-card">
           <template #header>
@@ -13,6 +13,7 @@
               <el-tag type="success" effect="dark" size="small">实时更新中</el-tag>
             </div>
           </template>
+          <!-- 传感器数据网格展示 -->
           <div class="sensor-grid-main">
             <div v-for="(value, key) in sensorData" :key="key" class="sensor-card-item">
               <div class="sensor-icon-large" :class="getSensorClass(key)">
@@ -21,11 +22,12 @@
               <div class="sensor-info-large">
                 <div class="sensor-label-large">{{ getLabel(key) }}</div>
                 <div class="sensor-value-large">
-                  {{ value }} <span class="unit-large">{{ getUnit(key) }}</span>
+                  <!-- 如果在线显示数值，否则显示0 -->
+                  {{ isOnline(key) ? value.value : 0 }} <span class="unit-large">{{ getUnit(key) }}</span>
                 </div>
                 <div class="sensor-status-large">
-                  <span class="status-dot active" :class="isAlarm(key, value) ? 'status-error' : 'status-ok'"></span>
-                  {{ isAlarm(key, value) ? '数值异常' : '运行正常' }}
+                  <span class="status-dot active" :class="getStatusClass(key, value)"></span>
+                  {{ getStatusText(key, value) }}
                 </div>
               </div>
             </div>
@@ -33,7 +35,7 @@
         </el-card>
       </el-col>
 
-      <!-- Right Column: System Alarms -->
+      <!-- 右侧列: 系统告警通知 -->
       <el-col :span="8">
         <el-card class="section-card alarm-card">
           <template #header>
@@ -44,10 +46,12 @@
             </div>
           </template>
           <div class="alarm-list-container">
+            <!-- 无告警时显示 -->
             <div v-if="alarms.length === 0" class="empty-alarm">
               <el-icon :size="48" color="#e1f3d8"><CircleCheckFilled /></el-icon>
               <p>当前系统运行平稳，无异常告警</p>
             </div>
+            <!-- 告警列表 -->
             <div v-else class="alarm-scroll-list">
               <div v-for="(alarm, index) in alarms" :key="index" class="alarm-item-box" :class="'type-' + alarm.type">
                 <div class="alarm-item-header" style="display: flex; justify-content: space-between; align-items: center;">
@@ -55,6 +59,7 @@
                     <el-icon><WarningFilled /></el-icon>
                     <span class="alarm-time">{{ alarm.time }}</span>
                   </div>
+                  <!-- 告警处理开关 -->
                   <el-switch
                     v-model="alarm.status"
                     active-value="processed"
@@ -76,9 +81,8 @@
       </el-col>
     </el-row>
 
-    <!-- Bottom Row: Last Hour History Records -->
+    <!-- 底部行: 近一小时历史趋势图 -->
     <el-row :gutter="20" style="margin-top: 20px;">
-      <!-- Left Column: History Chart -->
       <el-col :span="24">
         <el-card class="section-card">
           <template #header>
@@ -98,32 +102,40 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, reactive, nextTick, watch } from 'vue'
+import { ref, onMounted, onUnmounted, reactive, nextTick, watch, computed } from 'vue'
 import * as echarts from 'echarts'
+import { useAppStore } from '@/store'
+import axios from '@/api/axios'
 import { 
   Sunny, Pouring, Timer, Odometer, Bell, WarningFilled, 
   CircleCheckFilled, DataLine, Platform
 } from '@element-plus/icons-vue'
 
+const store = useAppStore()
 let historyChart = null
+const chartData = ref([])
 
-// Mock Data for Sensors
-const sensorData = reactive({
-  airTemp: 29.5,
-  airHumidity: 85,
-  lightIntensity: 12000,
-  soilTemp: 23.8,
-  soilHumidity: 34.0,
-  co2: 680
-})
+/**
+ * 计算属性: 获取实时传感器数据
+ * 从 store 中获取最新的环境数据，保持响应式更新
+ */
+const sensorData = computed(() => ({
+  airTemp: store.currentSensorData.airTemp,
+  airHumidity: store.currentSensorData.airHumidity,
+  lightIntensity: store.currentSensorData.lightIntensity,
+  soilTemp: store.currentSensorData.soilTemp,
+  soilHumidity: store.currentSensorData.soilHumidity,
+  co2: store.currentSensorData.co2Concentration
+}))
 
-// Mock Alarms
-const alarms = ref([
-  { message: '警告: 空气湿度过高 (85%)，请注意通风', time: '14:23:45', type: 'warning' },
-  { message: '提示: 土壤湿度较低 (34%)，建议开启喷淋', time: '14:15:20', type: 'info' },
-  { message: '警告: 光照强度超过阈值', time: '13:55:10', type: 'warning' }
-])
+// 告警列表数据
+const alarms = ref([])
 
+/**
+ * 获取传感器中文标签
+ * @param {string} key 传感器键名
+ * @returns {string} 中文名称
+ */
 const getLabel = (key) => {
   const labels = {
     airTemp: '空气温度',
@@ -136,6 +148,11 @@ const getLabel = (key) => {
   return labels[key] || key
 }
 
+/**
+ * 获取传感器单位
+ * @param {string} key 传感器键名
+ * @returns {string} 单位符号
+ */
 const getUnit = (key) => {
   const units = {
     airTemp: '°C',
@@ -148,6 +165,11 @@ const getUnit = (key) => {
   return units[key] || ''
 }
 
+/**
+ * 根据传感器类型获取对应图标组件
+ * @param {string} key 传感器键名
+ * @returns {Component} Element Plus 图标组件
+ */
 const getIcon = (key) => {
   if (key.includes('Temp')) return Timer
   if (key.includes('Humidity')) return Pouring
@@ -156,6 +178,11 @@ const getIcon = (key) => {
   return Platform
 }
 
+/**
+ * 获取传感器图标背景样式类名
+ * @param {string} key 传感器键名
+ * @returns {string} CSS类名
+ */
 const getSensorClass = (key) => {
   if (key.includes('Temp')) return 'icon-red'
   if (key.includes('Humidity')) return 'icon-blue'
@@ -163,14 +190,115 @@ const getSensorClass = (key) => {
   return 'icon-green'
 }
 
-const isAlarm = (key, value) => {
-  if (key === 'airTemp' && value > 30) return true
-  if (key === 'soilHumidity' && value < 40) return true
-  if (key === 'airHumidity' && value > 80) return true
-  return false
+// 传感器键名与设备编码的映射关系
+const deviceCodeMap = {
+  airTemp: 'S_AIR_TEMP_001',
+  airHumidity: 'S_AIR_HUM_001',
+  soilTemp: 'S_SOIL_TEMP_001',
+  soilHumidity: 'S_SOIL_HUM_001',
+  lightIntensity: 'S_LIGHT_001',
+  co2: 'S_CO2_001'
 }
 
-// Chart Initialization
+/**
+ * 判断传感器是否在线
+ * @param {string} key 传感器键名
+ * @returns {boolean} 是否在线
+ */
+const isOnline = (key) => {
+  const code = deviceCodeMap[key]
+  return store.sensorOnlineStatus[code] === 1
+}
+
+/**
+ * 获取状态点的样式类
+ * @param {string} key 传感器键名
+ * @param {Object} data 传感器数据对象
+ * @returns {string} 状态样式类名
+ */
+const getStatusClass = (key, data) => {
+  const online = isOnline(key)
+  
+  if (!online) return 'status-offline'
+  if (data && data.ex === 1) return 'status-error'
+  return 'status-ok'
+}
+
+/**
+ * 获取状态显示的文本
+ * @param {string} key 传感器键名
+ * @param {Object} data 传感器数据对象
+ * @returns {string} 状态文本
+ */
+const getStatusText = (key, data) => {
+  const online = isOnline(key)
+  
+  if (!online) return '离线'
+  if (data && data.ex === 1) return '数值异常'
+  return '运行正常'
+}
+
+/**
+ * 监听传感器数据变化，生成实时告警
+ * 当传感器在线且数据异常(ex=1)时，生成告警信息
+ */
+watch([sensorData, () => store.sensorOnlineStatus], ([newData]) => {
+  const newAlarms = []
+  
+  Object.keys(newData).forEach(key => {
+    const data = newData[key]
+    // 仅当在线且 ex === 1 (宽松相等) 时生成告警
+    const online = isOnline(key)
+    if (online && data && (data.ex == 1 || data.ex == '1')) {
+      // 尝试查找现有告警以保留状态/时间
+      const existing = alarms.value.find(a => a.key === key)
+      const now = new Date().toLocaleTimeString()
+      
+      if (existing) {
+        // 更新消息但保留状态和时间
+        existing.message = `${getLabel(key)}数值异常: ${data.value} ${getUnit(key)}`
+        newAlarms.push(existing)
+      } else {
+        newAlarms.push({
+          key: key,
+          message: `${getLabel(key)}数值异常: ${data.value} ${getUnit(key)}`,
+          time: now,
+          type: 'danger',
+          status: 'pending'
+        })
+      }
+    }
+  })
+  
+  alarms.value = newAlarms
+}, { deep: true, immediate: true })
+
+/**
+ * 获取历史数据
+ * 用于图表展示
+ */
+const fetchHistoryData = async () => {
+  const envCode = store.currentEnv?.envCode || localStorage.getItem('currentEnvCode')
+  if (!envCode) return
+  try {
+    const res = await axios.get('/query/data/history', { params: { envCode } })
+    chartData.value = res || []
+    updateHistoryChart()
+  } catch (error) {
+    console.error('获取历史数据失败:', error)
+  }
+}
+
+// 监听环境变化，重新获取历史数据
+watch(() => store.currentEnv, (newEnv) => {
+  if (newEnv && newEnv.envCode) {
+    fetchHistoryData()
+  }
+}, { deep: true })
+
+/**
+ * 初始化图表
+ */
 const initCharts = () => {
   const historyChartEl = document.getElementById('historyChart')
   if (historyChartEl) {
@@ -179,26 +307,29 @@ const initCharts = () => {
   }
 }
 
+/**
+ * 更新历史趋势图表配置
+ */
 const updateHistoryChart = () => {
   if (!historyChart) return
 
-  // Generate last 60 minutes labels (every 5 mins)
-  const labels = []
-  const now = new Date()
-  for (let i = 12; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * 5 * 60000)
-    labels.push(`${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`)
-  }
+  const data = chartData.value.slice().reverse() // 倒序排列，按时间顺序
+  const labels = data.map(item => {
+    const date = new Date(item.createTime)
+    return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`
+  })
 
+  // 定义系列元数据
   const seriesMeta = [
-    { name: '空气温度', unit: '°C', yAxisIndex: 0, color: '#57B36A', data: [28.2, 28.5, 28.8, 29.1, 29.4, 29.5, 29.6, 29.5, 29.4, 29.3, 29.4, 29.5, 29.5] },
-    { name: '空气湿度', unit: '%', yAxisIndex: 0, color: '#3C7BE6', data: [75, 76, 78, 80, 82, 84, 85, 85, 84, 83, 84, 85, 85] },
-    { name: '土壤温度', unit: '°C', yAxisIndex: 0, color: '#E6A23C', data: [22.1, 22.3, 22.5, 22.8, 23.1, 23.4, 23.8, 23.7, 23.5, 23.4, 23.5, 23.7, 23.8] },
-    { name: '土壤湿度', unit: '%', yAxisIndex: 0, color: '#F0C55B', data: [38, 37.5, 37, 36.5, 36, 35.5, 35, 34.5, 34, 34, 34, 34, 34] },
-    { name: '光照强度', unit: 'Lux', yAxisIndex: 1, color: '#27AE60', data: [11000, 11500, 11800, 12000, 12200, 12500, 12000, 11800, 11500, 11200, 11500, 11800, 12000] },
-    { name: 'CO₂ 浓度', unit: 'ppm', yAxisIndex: 1, color: '#909399', data: [650, 660, 670, 675, 680, 680, 675, 670, 665, 670, 675, 680, 680] },
+    { name: '空气温度', unit: '°C', yAxisIndex: 0, color: '#57B36A', data: data.map(i => i.airTemp) },
+    { name: '空气湿度', unit: '%', yAxisIndex: 0, color: '#3C7BE6', data: data.map(i => i.airHumidity) },
+    { name: '土壤温度', unit: '°C', yAxisIndex: 0, color: '#E6A23C', data: data.map(i => i.soilTemp) },
+    { name: '土壤湿度', unit: '%', yAxisIndex: 0, color: '#F0C55B', data: data.map(i => i.soilHumidity) },
+    { name: '光照强度', unit: 'Lux', yAxisIndex: 1, color: '#27AE60', data: data.map(i => i.lightIntensity) },
+    { name: 'CO₂ 浓度', unit: 'ppm', yAxisIndex: 1, color: '#909399', data: data.map(i => i.co2Concentration) },
   ]
 
+  // 设置 ECharts 配置项
   historyChart.setOption({
     tooltip: { 
       trigger: 'axis',
@@ -224,8 +355,8 @@ const updateHistoryChart = () => {
         return lines.join('<br/>')
       }
     },
-    legend: { show: true, top: 0, left: 10, textStyle: { color: '#666' } },
-    grid: { top: 52, right: 0, bottom: 34, left: 0, containLabel: true },
+    legend: { show: true, top: -5, left: 10, textStyle: { color: '#666' } },
+    grid: { top: 60, right: 10, bottom: 34, left: 10, containLabel: true },
     xAxis: { 
       type: 'category', 
       data: labels,
@@ -250,15 +381,19 @@ const updateHistoryChart = () => {
   }, true)
 }
 
+// 组件挂载时初始化
 onMounted(() => {
   nextTick(() => {
     initCharts()
+    fetchHistoryData()
+    // 监听窗口大小变化，重绘图表
     window.addEventListener('resize', () => {
       historyChart?.resize()
     })
   })
 })
 
+// 组件卸载时清理
 onUnmounted(() => {
   window.removeEventListener('resize', () => {})
   historyChart?.dispose()
@@ -299,7 +434,7 @@ onUnmounted(() => {
   color: #2c3e50;
 }
 
-/* Sensor Grid Styles */
+/* 传感器网格样式 */
 .sensor-grid-main {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -365,6 +500,7 @@ onUnmounted(() => {
   color: #606266;
 }
 
+/* 状态点动画 */
 .status-dot {
   width: 8px;
   height: 8px;
@@ -375,6 +511,13 @@ onUnmounted(() => {
 
 .status-dot.active.status-ok { background: #42b983; box-shadow: 0 0 8px rgba(66, 185, 131, 0.5); }
 .status-dot.active.status-error { background: #f56c6c; box-shadow: 0 0 8px rgba(245, 108, 108, 0.5); }
+.status-dot.active.status-offline { 
+  background: #909399; 
+  box-shadow: none; 
+}
+.status-dot.active.status-offline::after {
+  display: none;
+}
 
 .status-dot.active::after {
   content: '';
@@ -393,7 +536,7 @@ onUnmounted(() => {
   100% { transform: scale(2.5); opacity: 0; }
 }
 
-/* Alarm Card Styles */
+/* 告警卡片样式 */
 .alarm-list-container {
   height: 280px;
   overflow: hidden;

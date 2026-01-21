@@ -1,11 +1,13 @@
 <template>
   <div class="analysis-page">
+    <!-- 头部区域: 标题与日期筛选 -->
     <div class="analysis-header">
       <div class="analysis-title">
         <el-icon class="title-icon"><DataLine /></el-icon>
         <span>工况数据分析</span>
       </div>
       <div class="analysis-actions">
+        <!-- 日期范围选择器 -->
         <el-date-picker
           v-model="dateRange"
           type="daterange"
@@ -19,6 +21,7 @@
       </div>
     </div>
 
+    <!-- 图表展示区域 -->
     <el-card shadow="never" class="panel-card">
       <div v-loading="loading" element-loading-text="数据加载中...">
         <div class="main-chart" ref="mainChartEl"></div>
@@ -32,12 +35,16 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { DataLine } from '@element-plus/icons-vue'
 
+// 响应式状态
 const dateRange = ref([])
 const loading = ref(false)
-
 const mainChartEl = ref(null)
 let mainChart = null
 
+/**
+ * 确保日期范围有默认值
+ * 默认为最近14天
+ */
 const ensureDefaultDateRange = () => {
   if (dateRange.value?.length === 2) return
   const end = new Date()
@@ -46,6 +53,11 @@ const ensureDefaultDateRange = () => {
   dateRange.value = [start, end]
 }
 
+/**
+ * 生成时间轴标签
+ * @param {number} points 数据点数量
+ * @returns {string[]} 时间字符串数组
+ */
 const generateTimeLabels = (points = 13) => {
   const labels = []
   const now = new Date()
@@ -56,6 +68,15 @@ const generateTimeLabels = (points = 13) => {
   return labels
 }
 
+/**
+ * 生成模拟数据序列 (正弦波 + 随机噪声)
+ * 用于演示图表效果
+ * @param {number} points 数据点数
+ * @param {number} base 基准值
+ * @param {number} amplitude 振幅
+ * @param {number} noise 噪声系数
+ * @returns {number[]} 模拟数据数组
+ */
 const genSeriesData = (points, base, amplitude, noise = 0.25) => {
   return Array.from({ length: points }, (_, i) => {
     const wave = Math.sin((i / (points - 1)) * Math.PI) * amplitude
@@ -64,10 +85,15 @@ const genSeriesData = (points, base, amplitude, noise = 0.25) => {
   })
 }
 
+/**
+ * 获取主图表配置项
+ * @returns {Object} ECharts配置对象
+ */
 const getMainOption = () => {
   const labels = generateTimeLabels(13)
   const points = labels.length
 
+  // 定义各传感器数据的展示配置
   const seriesMeta = [
     { key: 'airTemp', name: '空气温度', unit: '°C', yAxisIndex: 0, color: '#57B36A', data: genSeriesData(points, 22, 4) },
     { key: 'airHumidity', name: '空气湿度', unit: '%', yAxisIndex: 0, color: '#3C7BE6', data: genSeriesData(points, 62, 10) },
@@ -156,11 +182,18 @@ const getMainOption = () => {
   }
 }
 
+/**
+ * 渲染主图表
+ */
 const renderMain = () => {
   if (!mainChart) return
   mainChart.setOption(getMainOption(), true)
 }
 
+/**
+ * 刷新所有数据
+ * 模拟异步加载过程
+ */
 const refreshAll = async () => {
   ensureDefaultDateRange()
   loading.value = true
@@ -170,10 +203,14 @@ const refreshAll = async () => {
   renderMain()
 }
 
+/**
+ * 处理窗口大小调整
+ */
 const onResize = () => {
   mainChart?.resize()
 }
 
+// 组件挂载时初始化
 onMounted(async () => {
   ensureDefaultDateRange()
   await nextTick()
@@ -182,6 +219,7 @@ onMounted(async () => {
   window.addEventListener('resize', onResize)
 })
 
+// 组件卸载时清理
 onUnmounted(() => {
   window.removeEventListener('resize', onResize)
   mainChart?.dispose()
@@ -213,7 +251,7 @@ onUnmounted(() => {
   gap: 10px;
   font-size: 18px;
   font-weight: 700;
-   color: #287c42;
+  color: #287c42;
 }
 
 .title-icon {

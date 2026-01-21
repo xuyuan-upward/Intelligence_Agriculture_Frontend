@@ -1,5 +1,6 @@
 <template>
   <div class="ai-page">
+    <!-- 顶部导航栏: 标题与温室选择 -->
     <div class="ai-topbar">
       <div class="ai-topbar-left">
         <div class="ai-title-pill">
@@ -8,6 +9,7 @@
         </div>
       </div>
       <div class="ai-topbar-right">
+        <!-- 温室选择器 -->
         <el-select v-model="selectedGreenhouse" size="small" class="gh-select">
           <el-option label="嫁接茄无内3号棚" value="gh3" />
           <el-option label="1号温室" value="gh1" />
@@ -17,6 +19,7 @@
     </div>
 
     <el-row :gutter="16">
+      <!-- 左侧: 预测概览与健康指标 -->
       <el-col :span="18">
         <el-card shadow="never" class="ai-main-card">
           <template #header>
@@ -27,6 +30,7 @@
               </div>
               <div class="ai-card-meta">
                 <el-tag size="small" type="success" effect="light">实时评估中</el-tag>
+                <!-- 时间范围选择 -->
                 <el-radio-group v-model="timeRange" size="small" @change="renderOverview">
                   <el-radio-button :label="3">3小时</el-radio-button>
                   <el-radio-button :label="6">6小时</el-radio-button>
@@ -37,10 +41,12 @@
             </div>
           </template>
 
+          <!-- 预测概览图表 -->
           <div class="ai-overview">
             <div class="overview-chart" ref="overviewChartEl"></div>
           </div>
 
+          <!-- 健康指标列表 -->
           <div class="health-list">
             <div v-for="item in healthItems" :key="item.key" class="health-item">
               <div class="health-left">
@@ -57,6 +63,7 @@
                 </div>
               </div>
               <div class="health-right">
+                <!-- 迷你趋势图 -->
                 <div class="sparkline" :ref="setSparkRef(item.key)"></div>
               </div>
             </div>
@@ -64,6 +71,7 @@
         </el-card>
       </el-col>
 
+      <!-- 右侧: 智能建议 -->
       <el-col :span="6">
         <el-card shadow="never" class="ai-suggest-card">
           <template #header>
@@ -83,6 +91,7 @@
               </div>
               <div class="suggest-desc">{{ item.content }}</div>
               <div class="suggest-actions" v-if="item.actionDevice">
+                <!-- 执行建议操作按钮 -->
                 <el-button
                   type="success"
                   size="small"
@@ -111,6 +120,7 @@ import * as echarts from 'echarts'
 import { TrendCharts, SwitchButton, Timer, Pouring, Sunny, Odometer } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAppStore } from '@/store'
+import service from '@/api/axios'
 
 const store = useAppStore()
 const selectedGreenhouse = ref('gh3')
@@ -119,7 +129,28 @@ const overviewChartEl = ref(null)
 const sparkEls = reactive({})
 let overviewChart = null
 const sparkCharts = {}
+const predictionData = ref([])
 
+/**
+ * 获取预测数据
+ * 调用后端AI预测接口获取未来环境参数
+ */
+const fetchPrediction = async () => {
+  try {
+    const res = await service.get('/query/prediction')
+    // 后端可能返回JSON字符串，需要解析
+    const data = typeof res === 'string' ? JSON.parse(res) : res
+    if (Array.isArray(data)) {
+      predictionData.value = data
+      renderOverview()
+    }
+  } catch (e) {
+    console.error('Failed to fetch prediction:', e)
+    // 失败时保持空数据或使用默认模拟数据逻辑
+  }
+}
+
+// 智能建议列表 (模拟数据)
 const suggestions = ref([
   {
     time: '未来 2 小时',
@@ -159,6 +190,7 @@ const suggestions = ref([
   }
 ])
 
+// 健康指标项配置
 const healthItems = reactive([
   { key: 'airTemp', name: '空气温度', icon: Timer, value: '25.8', unit: '°C', levelText: '良好', levelType: 'success', enabled: true },
   { key: 'airHumidity', name: '空气湿度', icon: Pouring, value: '76', unit: '%', levelText: '正常', levelType: 'info', enabled: true },
@@ -168,11 +200,20 @@ const healthItems = reactive([
   { key: 'co2', name: 'CO₂ 浓度', icon: Odometer, value: '650', unit: 'ppm', levelText: '正常', levelType: 'info', enabled: true },
 ])
 
+/**
+ * 收集 Sparkline 元素的引用
+ * @param {string} key 指标键名
+ */
 const setSparkRef = (key) => (el) => {
   if (!el) return
   sparkEls[key] = el
 }
 
+/**
+ * 执行建议的操作
+ * 弹出确认框，确认后调用 store 更新设备状态
+ * @param {Object} item 建议项
+ */
 const executeAction = (item) => {
   ElMessageBox.confirm(
     `确定要立即开启${item.deviceName}吗？`,
@@ -196,6 +237,9 @@ const executeAction = (item) => {
   }).catch(() => {})
 }
 
+/**
+ * 生成时间标签
+ */
 const genLabels = (points = 9) => {
   const labels = []
   const now = new Date()
@@ -206,6 +250,9 @@ const genLabels = (points = 9) => {
   return labels
 }
 
+/**
+ * 生成整点时间标签
+ */
 const genWholeHourLabels = (hours) => {
   const labels = []
   const start = new Date()
@@ -218,19 +265,52 @@ const genWholeHourLabels = (hours) => {
   return labels
 }
 
+/**
+ * 生成模拟曲线数据
+ */
 const genLine = (points, base, amp) =>
   Array.from({ length: points }, (_, i) => +(base + Math.sin((i / (points - 1)) * Math.PI) * amp + (Math.random() - 0.5) * amp * 0.25).toFixed(1))
 
+/**
+ * 获取概览图表配置
+ */
 const getOverviewOption = () => {
-  const labels = genWholeHourLabels(timeRange.value)
-  const points = labels.length
+  let labels = []
+  let seriesData = {
+    '空气温度': [], '空气湿度': [], '土壤温度': [], '土壤湿度': [], '光照强度': [], 'CO₂ 浓度': []
+  }
+
+  // 如果有真实预测数据则使用，否则使用模拟数据
+  if (predictionData.value.length > 0) {
+    const range = Math.min(predictionData.value.length, timeRange.value)
+    const slice = predictionData.value.slice(0, range)
+    labels = slice.map(item => item.time)
+    slice.forEach(item => {
+      seriesData['空气温度'].push(item.airTemp)
+      seriesData['空气湿度'].push(item.airHumidity)
+      seriesData['土壤温度'].push(item.soilTemp)
+      seriesData['土壤湿度'].push(item.soilHumidity)
+      seriesData['光照强度'].push(item.lightIntensity)
+      seriesData['CO₂ 浓度'].push(item.co2Concentration || item.co2 || 0)
+    })
+  } else {
+    labels = genWholeHourLabels(timeRange.value)
+    const points = labels.length
+    seriesData['空气温度'] = genLine(points, 24, 4)
+    seriesData['空气湿度'] = genLine(points, 66, 10)
+    seriesData['土壤温度'] = genLine(points, 20, 3)
+    seriesData['土壤湿度'] = genLine(points, 36, 8)
+    seriesData['光照强度'] = genLine(points, 720, 260).map(v => Math.max(0, Math.round(v)))
+    seriesData['CO₂ 浓度'] = genLine(points, 620, 80).map(v => Math.max(0, Math.round(v)))
+  }
+
   const seriesMeta = [
-    { name: '空气温度', unit: '°C', yAxisIndex: 0, color: '#57B36A', data: genLine(points, 24, 4) },
-    { name: '空气湿度', unit: '%', yAxisIndex: 0, color: '#3C7BE6', data: genLine(points, 66, 10) },
-    { name: '土壤温度', unit: '°C', yAxisIndex: 0, color: '#E6A23C', data: genLine(points, 20, 3) },
-    { name: '土壤湿度', unit: '%', yAxisIndex: 0, color: '#F0C55B', data: genLine(points, 36, 8) },
-    { name: '光照强度', unit: 'Lux', yAxisIndex: 1, color: '#27AE60', data: genLine(points, 720, 260).map(v => Math.max(0, Math.round(v))) },
-    { name: 'CO₂ 浓度', unit: 'ppm', yAxisIndex: 1, color: '#909399', data: genLine(points, 620, 80).map(v => Math.max(0, Math.round(v))) },
+    { name: '空气温度', unit: '°C', yAxisIndex: 0, color: '#57B36A', data: seriesData['空气温度'] },
+    { name: '空气湿度', unit: '%', yAxisIndex: 0, color: '#3C7BE6', data: seriesData['空气湿度'] },
+    { name: '土壤温度', unit: '°C', yAxisIndex: 0, color: '#E6A23C', data: seriesData['土壤温度'] },
+    { name: '土壤湿度', unit: '%', yAxisIndex: 0, color: '#F0C55B', data: seriesData['土壤湿度'] },
+    { name: '光照强度', unit: 'Lux', yAxisIndex: 1, color: '#27AE60', data: seriesData['光照强度'] },
+    { name: 'CO₂ 浓度', unit: 'ppm', yAxisIndex: 1, color: '#909399', data: seriesData['CO₂ 浓度'] },
   ]
 
   return {
@@ -308,6 +388,9 @@ const getOverviewOption = () => {
   }
 }
 
+/**
+ * 获取迷你图表配置
+ */
 const getSparkOption = (key) => {
   const labels = genLabels(12)
   const points = labels.length
@@ -339,14 +422,23 @@ const getSparkOption = (key) => {
   }
 }
 
+/**
+ * 打开评估详情
+ */
 const openEvaluation = (item) => {
   ElMessage.info(`已打开「${item.title}」评估图表`)
 }
 
+/**
+ * 渲染概览图表
+ */
 const renderOverview = () => {
   overviewChart?.setOption(getOverviewOption(), true)
 }
 
+/**
+ * 初始化所有图表
+ */
 const initCharts = async () => {
   await nextTick()
   if (overviewChartEl.value) {
@@ -364,16 +456,22 @@ const initCharts = async () => {
   })
 }
 
+/**
+ * 调整图表大小
+ */
 const resizeCharts = () => {
   overviewChart?.resize()
   Object.values(sparkCharts).forEach((c) => c?.resize())
 }
 
+// 组件挂载时初始化
 onMounted(async () => {
   await initCharts()
+  fetchPrediction()
   window.addEventListener('resize', resizeCharts)
 })
 
+// 组件卸载时清理
 onUnmounted(() => {
   window.removeEventListener('resize', resizeCharts)
   overviewChart?.dispose()

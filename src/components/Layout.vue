@@ -1,20 +1,36 @@
 <template>
   <el-container class="layout-container">
-    <!-- Top Banner Header -->
+    <!-- 顶部导航栏 -->
     <el-header height="80px" class="main-header">
       <div class="header-inner">
-        <div class="logo-area">
-          <el-icon :size="32" class="logo-icon"><Platform /></el-icon>
-        </div>
+        <!-- 标题区域 -->
         <div class="header-center">
+          <el-icon :size="48" class="logo-icon"><Platform /></el-icon>
           <h1 class="system-title">基于 Spring Boot 与 AI 预测的智能农业监控系统</h1>
+            <el-icon :size="48" class="logo-icon"><Platform /></el-icon>
         </div>
-        <div class="header-right" />
+        <!-- 右侧环境选择区域 -->
+        <div class="header-right">
+          <el-select
+            v-model="selectedEnvCode"
+            size="small"
+            placeholder="选择环境"
+            class="env-select"
+            filterable
+            @change="handleEnvChange"
+          >
+            <el-option
+              v-for="env in store.envList"
+              :key="env.envCode"
+              :label="env.envName || env.envCode"
+              :value="env.envCode"
+            />
+          </el-select>
+        </div>
       </div>
     </el-header>
     <el-container class="content-container">
-      <!-- Optional Sidebar for Navigation if needed, or we can use Tabs in Dashboard -->
-      <!-- Keeping Sidebar for navigation between views if user wants to switch context -->
+      <!-- 侧边导航栏 -->
       <el-aside width="220px" class="main-aside">
         <el-menu
           :default-active="activeMenu"
@@ -22,18 +38,22 @@
           router
           :collapse="false"
         >
+          <!-- 实时监控菜单 -->
           <el-menu-item index="/dashboard">
             <el-icon><Monitor /></el-icon>
             <span>实时监控与告警</span>
           </el-menu-item>
+          <!-- 设备控制菜单 -->
           <el-menu-item index="/control">
             <el-icon><SwitchButton /></el-icon>
             <span>设备控制中心</span>
           </el-menu-item>
+          <!-- 历史数据菜单 -->
           <el-menu-item index="/history">
             <el-icon><DataLine /></el-icon>
             <span>历史数据分析</span>
           </el-menu-item>
+          <!-- AI 预测菜单 -->
           <el-menu-item index="/prediction">
             <el-icon><TrendCharts /></el-icon>
             <span>AI 预测与建议</span>
@@ -41,6 +61,7 @@
         </el-menu>
       </el-aside>
       
+      <!-- 主内容区域 -->
       <el-main>
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
@@ -53,15 +74,67 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+/**
+ * Layout.vue
+ * 全局布局组件
+ * 
+ * 包含：
+ * 1. 顶部标题栏 (Header)
+ * 2. 左侧导航菜单 (Sidebar)
+ * 3. 环境切换功能 (Environment Selector)
+ * 4. 主内容路由视图 (Router View)
+ */
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Monitor, SwitchButton, DataLine, TrendCharts, Platform } from '@element-plus/icons-vue'
+import axios from '@/api/axios'
+import { useAppStore } from '@/store'
 
+// 引入 Store 和 路由
+const store = useAppStore()
 const route = useRoute()
+
+// 当前激活的菜单项，根据路由路径自动高亮
 const activeMenu = computed(() => route.path)
+
+// 当前选中的环境代码
+const selectedEnvCode = ref('')
+
+/**
+ * 加载环境列表
+ * 从后端获取环境列表，并初始化当前选中的环境
+ */
+const loadEnv = async () => {
+  // 获取环境列表
+  const list = await axios.get('/query/env/list')
+  store.setEnvList(list)
+
+  // 尝试从本地存储获取上次选中的环境
+  const savedEnvCode = localStorage.getItem('currentEnvCode')
+  // 获取当前环境详情 (如果有保存的 code 则用，否则后端可能返回默认)
+  const current = await axios.get('/query/env/current', { params: { envCode: savedEnvCode || '' } })
+  store.setCurrentEnv(current)
+  selectedEnvCode.value = current?.envCode || ''
+}
+
+/**
+ * 处理环境切换
+ * @param {string} envCode - 选中的环境代码
+ */
+const handleEnvChange = (envCode) => {
+  const env = store.envList.find((e) => e.envCode === envCode) || null
+  store.setCurrentEnv(env)
+  localStorage.setItem('currentEnvCode', envCode || '')
+}
+
+// 组件挂载时加载环境数据
+onMounted(() => {
+  loadEnv()
+})
 </script>
 
 <style scoped>
+/* 布局容器样式 */
 .layout-container {
   height: 100vh;
   display: flex;
@@ -73,13 +146,13 @@ const activeMenu = computed(() => route.path)
   background-attachment: fixed;
 }
 
+/* 顶部 Header 样式 */
 .main-header {
-  background: linear-gradient(90deg, rgba(39, 174, 96, 0.78) 0%, rgba(46, 204, 113, 0.78) 100%);
-  backdrop-filter: blur(10px);
-  color: white;
+
+  color: rgb(62, 60, 60);
   padding: 0;
-  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.2);
-  z-index: 100;
+ 
+  
   position: relative;
 }
 
@@ -98,25 +171,27 @@ const activeMenu = computed(() => route.path)
   align-items: center;
   gap: 15px;
   width: 200px; /* Fixed width to help centering */
+  justify-content: flex-end;
 }
 
 .header-center {
+  padding-left: 120px;
   flex: 1;
   display: flex;
   justify-content: center;
 }
 
 .logo-icon {
-  font-size: 32px;
+  font-size: 48px;
   color: white;
 }
 
 .system-title {
-  margin: 0;
+  margin-top: 5px;
   font-size: 24px;
   font-weight: 600;
   letter-spacing: 1px;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  text-shadow: 0 2px 6px rgba(123, 119, 119, 0.25);
   text-align: center;
 }
 
@@ -126,6 +201,10 @@ const activeMenu = computed(() => route.path)
   gap: 20px;
   width: 200px; /* Fixed width to help centering */
   justify-content: flex-end;
+}
+
+.env-select {
+  width: 180px;
 }
 
 .date-time {
@@ -158,6 +237,7 @@ const activeMenu = computed(() => route.path)
   width: 100%;
 }
 
+/* 侧边栏样式 */
 .main-aside {
   background: rgba(255, 255, 255, 0.5);
   backdrop-filter: blur(10px);
@@ -202,6 +282,7 @@ const activeMenu = computed(() => route.path)
   overflow-y: auto;
 }
 
+/* 路由切换动画 */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;
