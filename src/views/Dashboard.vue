@@ -281,7 +281,7 @@ const fetchHistoryData = async () => {
   const envCode = store.currentEnv?.envCode || localStorage.getItem('currentEnvCode')
   if (!envCode) return
   try {
-    const res = await axios.get('/query/data/history', { params: { envCode } })
+    const res = await axios.get('/device/query/data/history', { params: { envCode } })
     chartData.value = res || []
     updateHistoryChart()
   } catch (error) {
@@ -355,17 +355,43 @@ const updateHistoryChart = () => {
         return lines.join('<br/>')
       }
     },
-    legend: { show: true, top: -5, left: 10, textStyle: { color: '#666' } },
-    grid: { top: 60, right: 10, bottom: 34, left: 10, containLabel: true },
+    legend: { 
+      show: true, 
+      top: 10, 
+      left: 'center', 
+      itemGap: 20,
+      textStyle: { color: '#666', fontSize: 13 } 
+    },
+    grid: { 
+      top: 100, 
+      right: 50, 
+      bottom: 50, 
+      left: 50, 
+      containLabel: true 
+    },
     xAxis: { 
       type: 'category', 
       data: labels,
       axisLine: { lineStyle: { color: '#eee' } },
-      axisLabel: { color: '#999' }
+      axisLabel: { color: '#999', margin: 15 }
     },
     yAxis: [
-      { type: 'value', name: '温湿度/温度', nameTextStyle: { color: '#888' }, axisLabel: { color: '#999' }, splitLine: { lineStyle: { type: 'dashed', color: '#f5f5f5' } } },
-      { type: 'value', name: '光照/CO₂', nameTextStyle: { color: '#888' }, axisLabel: { color: '#999' }, splitLine: { show: false } }
+      { 
+        type: 'value', 
+        name: '温度/湿度 (°C/%)', 
+        nameTextStyle: { color: '#888', padding: [0, 0, 10, 0] }, 
+        nameGap: 25,
+        axisLabel: { color: '#999' }, 
+        splitLine: { lineStyle: { type: 'dashed', color: '#f5f5f5' } } 
+      },
+      { 
+        type: 'value', 
+        name: '光照/CO₂ (Lux/ppm)', 
+        nameTextStyle: { color: '#888', padding: [0, 0, 10, 0] }, 
+        nameGap: 25,
+        axisLabel: { color: '#999' }, 
+        splitLine: { show: false } 
+      }
     ],
     series: seriesMeta.map((s) => ({
       name: s.name,
@@ -439,7 +465,7 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
-  padding: 10px 0;
+  padding: 20px 0;
 }
 
 .sensor-card-item {
@@ -594,7 +620,7 @@ onUnmounted(() => {
 }
 
 .chart-wrapper {
-  padding: 10px 0;
+  padding: 20px 10px;
 }
 
 .history-table-wrapper {

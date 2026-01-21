@@ -1,20 +1,12 @@
 <template>
   <div class="ai-page">
-    <!-- 顶部导航栏: 标题与温室选择 -->
+    <!-- 顶部导航栏: 标题 -->
     <div class="ai-topbar">
       <div class="ai-topbar-left">
         <div class="ai-title-pill">
           <el-icon class="pill-icon"><TrendCharts /></el-icon>
           <span>AI 预测与建议</span>
         </div>
-      </div>
-      <div class="ai-topbar-right">
-        <!-- 温室选择器 -->
-        <el-select v-model="selectedGreenhouse" size="small" class="gh-select">
-          <el-option label="嫁接茄无内3号棚" value="gh3" />
-          <el-option label="1号温室" value="gh1" />
-          <el-option label="2号温室" value="gh2" />
-        </el-select>
       </div>
     </div>
 
@@ -115,7 +107,7 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import * as echarts from 'echarts'
 import { TrendCharts, SwitchButton, Timer, Pouring, Sunny, Odometer } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -123,7 +115,6 @@ import { useAppStore } from '@/store'
 import service from '@/api/axios'
 
 const store = useAppStore()
-const selectedGreenhouse = ref('gh3')
 const timeRange = ref(12)
 const overviewChartEl = ref(null)
 const sparkEls = reactive({})
@@ -136,11 +127,25 @@ const predictionData = ref([])
  * 调用后端AI预测接口获取未来环境参数
  */
 const fetchPrediction = async () => {
+  const envCode = store.currentEnv?.envCode || localStorage.getItem('currentEnvCode')
+  if (!envCode) return
+
   try {
-    const res = await service.get('/query/prediction')
-    // 后端可能返回JSON字符串，需要解析
+    const res = await service.get('/query/prediction', {
+      params: { envCode }
+    })
+    // 后端返回 CommonResult<AiAnalysisResp>，假设拦截器解包了 data
+    // 如果没有拦截器解包，则需要 res.data
+    // 这里假设 service 已经处理了响应
     const data = typeof res === 'string' ? JSON.parse(res) : res
-    if (Array.isArray(data)) {
+    
+    // 检查是否为新结构 { chartData, suggestions }
+    if (data && data.chartData) {
+      predictionData.value = data.chartData
+      suggestions.value = data.suggestions || []
+      renderOverview()
+    } else if (Array.isArray(data)) {
+      // 兼容旧格式（如果有）
       predictionData.value = data
       renderOverview()
     }
@@ -150,45 +155,15 @@ const fetchPrediction = async () => {
   }
 }
 
-// 智能建议列表 (模拟数据)
-const suggestions = ref([
-  {
-    time: '未来 2 小时',
-    title: '高温预警',
-    content: '预测午间温度将超过 30°C，建议提前开启通风设备降温。',
-    type: 'warning',
-    actionDevice: 'fan',
-    deviceName: '风扇',
-    loading: false
-  },
-  {
-    time: '未来 4 小时',
-    title: '土壤缺水',
-    content: '预测土壤湿度将持续下降至阈值以下，建议进行补充灌溉。',
-    type: 'danger',
-    actionDevice: 'pump',
-    deviceName: '水泵',
-    loading: false
-  },
-  {
-    time: '未来 8 小时',
-    title: '光照不足',
-    content: '预计下午光照强度低于作物需求，建议开启补光灯。',
-    type: 'warning',
-    actionDevice: 'light',
-    deviceName: '补光灯',
-    loading: false
-  },
-  {
-    time: '未来 10 小时',
-    title: '湿度过低',
-    content: '空气湿度预计下降，建议开启加湿器。',
-    type: 'info',
-    actionDevice: 'humidifier',
-    deviceName: '加湿器',
-    loading: false
+// 智能建议列表
+const suggestions = ref([])
+
+// 监听环境变化
+watch(() => store.currentEnv, (newEnv) => {
+  if (newEnv && newEnv.envCode) {
+    fetchPrediction()
   }
-])
+}, { deep: true })
 
 // 健康指标项配置
 const healthItems = reactive([

@@ -6,6 +6,10 @@ export const useAppStore = defineStore('app', () => {
   const envList = ref([])
   // 当前选中的环境
   const currentEnv = ref(null)
+  const token = ref(localStorage.getItem('auth_token') || '')
+  const role = ref(localStorage.getItem('auth_role') || '')
+  const userId = ref(localStorage.getItem('auth_userId') || '')
+  const username = ref(localStorage.getItem('auth_username') || '')
 
   // 1. 设备工作状态 (ON/OFF) - 主要用于执行器控制 (1: 开启, 0: 关闭)
   const deviceWorkStatus = ref({})
@@ -113,10 +117,34 @@ export const useAppStore = defineStore('app', () => {
       co2Concentration: { value: 0, ex: 0 }
     }
   }
+  const setAuth = (newToken, newRole, newUserId, newUsername) => {
+    token.value = newToken || ''
+    role.value = newRole || ''
+    userId.value = newUserId || ''
+    username.value = newUsername || ''
+    localStorage.setItem('auth_token', token.value)
+    localStorage.setItem('auth_role', role.value)
+    localStorage.setItem('auth_userId', userId.value)
+    localStorage.setItem('auth_username', username.value)
+  }
+  const clearAuth = () => {
+    token.value = ''
+    role.value = ''
+    userId.value = ''
+    username.value = ''
+    localStorage.removeItem('auth_token')
+    localStorage.removeItem('auth_role')
+    localStorage.removeItem('auth_userId')
+    localStorage.removeItem('auth_username')
+  }
 
   return {
     envList,
     currentEnv,
+    token,
+    role,
+    userId,
+    username,
     deviceWorkStatus,
     controlDevices,
     // controlOnlineStatus,
@@ -132,6 +160,8 @@ export const useAppStore = defineStore('app', () => {
     updateDeviceWorkStatus,
     updateThreshold,
     setEnvList,
-    setCurrentEnv
+    setCurrentEnv,
+    setAuth,
+    clearAuth
   }
 })

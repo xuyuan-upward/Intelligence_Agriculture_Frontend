@@ -172,7 +172,7 @@ const localThresholds = reactive(JSON.parse(JSON.stringify(store.thresholds)))
  */
 const fetchControlDevices = async (envCode) => {
   try {
-    const res = await axios.get('/query/device/list', { params: { envCode } })
+    const res = await axios.get('/device/query/device/list', { params: { envCode } })
     store.setControlDevices(res)
     if (Array.isArray(res) && res.length > 0) {
       isAutoMode.value = res.some((device) => device.controlMode === 1)
@@ -211,7 +211,7 @@ const handleDeviceControl = async (deviceCode, val) => {
     return
   }
   try {
-    await axios.post('/update/device/control', {
+    await axios.post('/device/update/device/control', {
       envCode,
       deviceCode,
       status: targetStatus
@@ -249,7 +249,7 @@ const handleModeChange = async (val) => {
   }
 
   try {
-    await axios.post('/update/devices/mode', {
+    await axios.post('/device/update/devices/mode', {
       envCode: envCode,
       mode: val ? 1 : 0
     })
@@ -312,7 +312,7 @@ const saveThresholds = () => {
     envThresholdList: thresholdList
   }
 
-   axios.post('/update/env/envthreshold', payload)
+   axios.post('/device/update/env/envthreshold', payload)
     .then(() => {
       // 更新 Store 中的阈值
       Object.keys(localThresholds).forEach((key) => {

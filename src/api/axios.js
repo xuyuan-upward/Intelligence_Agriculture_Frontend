@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import router from '@/router'
 
 // 创建 axios 实例
 const service = axios.create({
@@ -12,12 +13,10 @@ const service = axios.create({
 // 请求拦截器
 service.interceptors.request.use(
   (config) => {
-    // 在发送请求之前做些什么
-    // 例如：如果存在 token，则添加到请求头中
-    // const token = localStorage.getItem('token')
-    // if (token) {
-    //   config.headers['Authorization'] = 'Bearer ' + token
-    // }
+    const token = localStorage.getItem('auth_token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
     return config
   },
   (error) => {
@@ -43,7 +42,26 @@ service.interceptors.response.use(
   (error) => {
     // 处理 HTTP 错误或网络错误
     console.log('err' + error)
-    ElMessage.error(error.message)
+    const isLoginPage = router.currentRoute.value.path === '/login'
+
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('auth_role')
+      localStorage.removeItem('auth_userId')
+      if (!isLoginPage) {
+        router.push('/login')
+        ElMessage.error('登录已失效，请重新登录')
+      }
+    } else if (error.response && error.response.status === 403) {
+      const res = error.response.data
+      ElMessage.error(res.msg || '权限不足')
+    } else if (error.response && error.response.status === 404) {
+      if (!isLoginPage) {
+        ElMessage.error('资源不存在')
+      }
+    } else {
+      ElMessage.error(error.message)
+    }
     return Promise.reject(error)
   }
 )
